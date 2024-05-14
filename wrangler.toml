@@ -91,9 +91,26 @@ compatibility_flags = ["nodejs_compat"]
 
 # Bind an R2 Bucket. Use R2 to store arbitrarily large blobs of data, such as files.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#r2-buckets
-# [[r2_buckets]]
-# binding = "MY_BUCKET"
-# bucket_name = "my-bucket"
+
+[[r2_buckets]]
+binding = "EEUR_BUCKET"
+bucket_name = "r2-bucket-eeur"
+
+[[r2_buckets]]
+binding = "WEUR_BUCKET"
+bucket_name = "r2-bucket-weur"
+
+[[r2_buckets]]
+binding = "ENAM_BUCKET"
+bucket_name = "r2-bucket-enam"
+
+[[r2_buckets]]
+binding = "WNAM_BUCKET"
+bucket_name = "r2-bucket-wnam"
+
+[[r2_buckets]]
+binding = "APAC_BUCKET"
+bucket_name = "r2-bucket-apac"
 
 # Bind another Worker service. Use this binding to call another Worker without network overhead.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
