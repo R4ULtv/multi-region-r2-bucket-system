@@ -32,14 +32,15 @@ export default {
     const url = new URL(request.url);
     const objectName = url.pathname.slice(1);
 
-    // these are not just the exact server locations but an indication of where they might be
+    // these are not the exact server locations but an indication of where they might be
     const positions = [
-      { latitude: 48.2203697, longitude: 16.2972723, env: env.EEUR_BUCKET }, // EU East - Vienna
-      { latitude: 53.3244116, longitude: -6.4105081, env: env.WEUR_BUCKET }, // EU West - Dublin
-      { latitude: 38.89511, longitude: -77.03637, env: env.ENAM_BUCKET }, // US East - Washington D.C.
-      { latitude: 37.7577607, longitude: -122.4787995, env: env.WNAM_BUCKET }, // US West - San Francisco
-      { latitude: 1.352083, longitude: 103.819836, env: env.APAC_BUCKET }, // Asia/Pacific - Singapore
+      { latitude: 48.2203697, longitude: 16.2972723, env: env.EEUR_BUCKET, name: "EU East - Vienna", shortName: "EEUR" },
+      { latitude: 53.3244116, longitude: -6.4105081, env: env.WEUR_BUCKET, name: "EU West - Dublin", shortName: "WEUR" },
+      { latitude: 38.89511, longitude: -77.03637, env: env.ENAM_BUCKET, name: "US East - Washington D.C.", shortName: "ENAM" },
+      { latitude: 37.7577607, longitude: -122.4787995, env: env.WNAM_BUCKET, name: "US West - Los Angeles", shortName: "WNAM" },
+      { latitude: 1.352083, longitude: 103.819836, env: env.APAC_BUCKET, name: "Asia Pacific - Singapore", shortName: "APAC" },
     ];
+
     if (request.method === 'GET') {
       if (objectName === '') {
         return new Response(`Missing object`, { status: 400 });
