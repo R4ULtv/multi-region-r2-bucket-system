@@ -1,4 +1,4 @@
-[![CloudFlare Worker - Multi-Region Download System]](https://www.raulcarini.dev/api/dynamic-og?title=CloudFlare%20Worker&description=Multi-Region%20Download%20Sysyem)
+<img alt="CloudFlare Worker - Multi-Region Download System" src="[/images/boo.svg](https://www.raulcarini.dev/api/dynamic-og?title=CloudFlare%20Worker&description=Multi-Region%20Download%20Sysyem)">
 
 This repository provides an example of how to set up a multi-region bucket with Cloudflare Workers and R2. The configuration allows you to download data quickly and securely across multiple regions, with low-latency access from anywhere in the world.
 
