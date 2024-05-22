@@ -9,7 +9,7 @@ This repository provides an example of how to set up a multi-region bucket with 
 npm install -g wrangler
 ```
 
-Cloudflare Account: A free or paid Cloudflare account is required. You can create an account at https://www.cloudflare.com/.
+- Cloudflare Account: A free or paid Cloudflare account is required. You can create an account at https://www.cloudflare.com/.
 
 ## Installation
 
