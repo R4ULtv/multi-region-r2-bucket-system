@@ -1,18 +1,17 @@
-# Multi-Region bucket with Cloudflare Workers and R2
+[![CloudFlare Worker - Multi-Region Download System](http://localhost:3000/api/dynamic-og?title=CloudFlare%20Worker&description=Multi-Region%20Download%20Sysyem)
 
 This repository provides an example of how to set up a multi-region bucket with Cloudflare Workers and R2. The configuration allows you to download data quickly and securely across multiple regions, with low-latency access from anywhere in the world.
 
-## What are the prerequisites?
-Node.js: Download and install the LTS version of Node.js from the official website: https://nodejs.org/en/download/package-manager.
-
-Wrangler: Wrangler is the tool for deploying Cloudflare Workers. You can install it using npm by running this command in the terminal.
+## Prerequisites
+- Node.js: Download and install the LTS version of Node.js from the official website: https://nodejs.org/en/download/package-manager.
+- Wrangler: Wrangler is the tool for deploying Cloudflare Workers. You can install it using npm by running this command in the terminal.
 ```bash
 npm install -g wrangler
 ```
 
 Cloudflare Account: A free or paid Cloudflare account is required. You can create an account at https://www.cloudflare.com/.
 
-## How do I install it?
+## Installation
 
 ### 1. Create a Cloudflare account and copy the account ID:
 
