@@ -4,6 +4,7 @@ function objectNotFound(objectName) {
   return new Response(`${objectName} not found`, { status: 404 });
 }
 
+// Calculates the distance between the user's location and a given position.
 const calculateDistance = (userLocation, position) => {
   if (!userLocation || !position) {
     return null;
@@ -12,6 +13,7 @@ const calculateDistance = (userLocation, position) => {
   return getDistance(userLocation, position);
 };
 
+// Finds the nearest position (R2 bucket) to the user's location.
 const findNearestPosition = (userLocation, positions) => {
   if (!userLocation || positions.length === 0) {
     return null;
