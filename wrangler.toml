@@ -4,30 +4,31 @@ main = "src/index.js"
 compatibility_date = "2024-05-12"
 compatibility_flags = ["nodejs_compat"]
 
-# account_id = "YOUR CLOUDFLARE ACCOUNT ID"
+# account_id = "CLOUDFLARE_ACCOUNT_ID"
 
-# Bind an R2 Bucket. Use R2 to store arbitrarily large blobs of data, such as files.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#r2-buckets
+# IMPORTANT: ONLY FOR THE AUTH EXAMPLE
+# [vars]
+# UPSTASH_REDIS_REST_TOKEN = "REST_TOKEN"
+# UPSTASH_REDIS_REST_URL = "REST_URL"
 
-# IMPORTANT
-# YOU NEED TO EDIT THE "bucket_name" BASED ON WHAT YOU PUT ON CLOUDFLARE R2
+# IMPORTANT: YOU NEED TO EDIT THE "bucket_name" BASED ON WHAT YOU PUT ON CLOUDFLARE R2
 
 [[r2_buckets]]
 binding = "EEUR_BUCKET"
-bucket_name = "YOUR NAME ON CLOUDFLARE R2"
+bucket_name = "EURR"
 
 [[r2_buckets]]
 binding = "WEUR_BUCKET"
-bucket_name = "YOUR NAME ON CLOUDFLARE R2"
+bucket_name = "WEUR"
 
 [[r2_buckets]]
 binding = "ENAM_BUCKET"
-bucket_name = "YOUR NAME ON CLOUDFLARE R2"
+bucket_name = "ENAM"
 
 [[r2_buckets]]
 binding = "WNAM_BUCKET"
-bucket_name = "YOUR NAME ON CLOUDFLARE R2"
+bucket_name = "WNAM"
 
 [[r2_buckets]]
 binding = "APAC_BUCKET"
-bucket_name = "YOUR NAME ON CLOUDFLARE R2"
+bucket_name = "APAC"
