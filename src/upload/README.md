@@ -4,7 +4,7 @@ You can use this python script to upload files to R2 buckets in single or multip
 
 ## Prerequisites
 - Python: 3.8 or higher. You can install it here: https://www.python.org/downloads/.
-- Cloudflare Workers: You can use my example worker (check [here](../../README.md)) or you can create your own worker.
+- Cloudflare Workers: You can use my example worker (check [here](../../)) or you can create your own worker.
 
 ## Installation
 

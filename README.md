@@ -53,7 +53,7 @@ wrangler deploy
 ```
 
 ## Upload
-You can upload data to the R2 buckets using the Cloudflare Workers and a client side script made by me or you can create your own script. Check [here](./src/upload/README.md) for more.
+You can upload data to the R2 buckets using the Cloudflare Workers and a client side script made by me or you can create your own script. Check [here](./src/upload/) for more.
 
 ## Examples
 You can check others examples [here](./src/examples/).
