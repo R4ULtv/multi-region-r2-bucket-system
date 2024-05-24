@@ -56,4 +56,4 @@ wrangler deploy
 You can upload data to the R2 buckets using the Cloudflare Workers and a client side script made by me or you can create your own script. Check [here](./src/upload/) for more.
 
 ## Examples
-You can check others examples [here](./src/examples/).
+You can check others examples [here](./src/example/).
