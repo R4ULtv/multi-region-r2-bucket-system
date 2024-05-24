@@ -33,10 +33,10 @@ npm install -g wrangler
 - Run the following command to clone the repository:
 
 ```bash
-#Clone the repository:
+# Clone the repository:
 git clone https://github.com/cloudflare/multi-region-bucket.git
 
-#Install the dependencies using npm:
+# Install the dependencies using npm:
 npm install
 ```
 
