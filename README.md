@@ -33,7 +33,11 @@ npm install -g wrangler
 - Run the following command to clone the repository:
 
 ```bash
+#Clone the repository:
 git clone https://github.com/cloudflare/multi-region-bucket.git
+
+#Install the dependencies using npm:
+npm install
 ```
 
 ### 4. Modify the wrangler.toml file:
