@@ -99,7 +99,7 @@ export default {
 
       case 'POST':
         var action = url.searchParams.get('action');
-        var serverName = request.headers.get('x-server-name');
+        var serverName = request.headers.get('X-Bucket-Name');
         if (serverName === null) {
           return new Response(`Missing server name`, {
             status: 400,
@@ -157,7 +157,7 @@ export default {
         }
       case 'PUT':
         var action = url.searchParams.get('action');
-        var serverName = request.headers.get('x-server-name');
+        var serverName = request.headers.get('X-Bucket-Name');
         if (serverName === null) {
           return new Response(`Missing server name`, {
             status: 400,
