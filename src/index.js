@@ -1,191 +1,226 @@
-import getDistance from 'geolib/es/getDistance';
+import { Hono } from "hono";
+import { bearerAuth } from "hono/bearer-auth";
+import { getDistance } from "geolib";
+// import { Redis } from '@upstash/redis/cloudflare'; // you need to install `@upstash/redis`
+
+const app = new Hono();
 
 function objectNotFound(objectName) {
-  return new Response(`${objectName} not found`, { status: 404 });
+	return new Response(`${objectName} not found`, { status: 404 });
 }
 
-// Calculates the distance between the user's location and a given position.
 const calculateDistance = (userLocation, position) => {
-  if (!userLocation || !position) {
-    return null;
-  }
-
-  return getDistance(userLocation, position);
+	if (!userLocation || !position) {
+		return null;
+	}
+	return getDistance(userLocation, position);
 };
 
-// Finds the nearest position (R2 bucket) to the user's location.
 const findNearestPosition = (userLocation, positions) => {
-  if (!userLocation || positions.length === 0) {
-    return null;
-  }
-
-  const distances = positions.map((position) => ({
-    ...position,
-    distance: calculateDistance(userLocation, position),
-  }));
-
-  const nearestPosition = distances.reduce((minPosition, current) => (current.distance < minPosition.distance ? current : minPosition));
-
-  return nearestPosition.env;
+	if (!userLocation || positions.length === 0) {
+		return null;
+	}
+	const distances = positions.map((position) => ({
+		...position,
+		distance: calculateDistance(userLocation, position),
+	}));
+	return distances.reduce((minPosition, current) =>
+		current.distance < minPosition.distance ? current : minPosition,
+	).env;
 };
 
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const objectName = url.pathname.slice(1);
+const positions = [
+	{
+		latitude: 48.2203697,
+		longitude: 16.2972723,
+		env: "EEUR_BUCKET",
+		name: "EU East - Vienna",
+		shortName: "EEUR",
+	},
+	{
+		latitude: 53.3244116,
+		longitude: -6.4105081,
+		env: "WEUR_BUCKET",
+		name: "EU West - Dublin",
+		shortName: "WEUR",
+	},
+	{
+		latitude: 38.89511,
+		longitude: -77.03637,
+		env: "ENAM_BUCKET",
+		name: "US East - Washington D.C.",
+		shortName: "ENAM",
+	},
+	{
+		latitude: 37.7577607,
+		longitude: -122.4787995,
+		env: "WNAM_BUCKET",
+		name: "US West - Los Angeles",
+		shortName: "WNAM",
+	},
+	{
+		latitude: 1.352083,
+		longitude: 103.819836,
+		env: "APAC_BUCKET",
+		name: "Asia Pacific - Singapore",
+		shortName: "APAC",
+	},
+];
 
-    // these are not the exact server locations but an indication of where they might be
-    const positions = [
-      { latitude: 48.2203697, longitude: 16.2972723, env: env.EEUR_BUCKET, name: 'EU East - Vienna', shortName: 'EEUR' },
-      { latitude: 53.3244116, longitude: -6.4105081, env: env.WEUR_BUCKET, name: 'EU West - Dublin', shortName: 'WEUR' },
-      { latitude: 38.89511, longitude: -77.03637, env: env.ENAM_BUCKET, name: 'US East - Washington D.C.', shortName: 'ENAM' },
-      { latitude: 37.7577607, longitude: -122.4787995, env: env.WNAM_BUCKET, name: 'US West - Los Angeles', shortName: 'WNAM' },
-      { latitude: 1.352083, longitude: 103.819836, env: env.APAC_BUCKET, name: 'Asia Pacific - Singapore', shortName: 'APAC' },
-    ];
+// Middleware for token validation
+// app.use('*', async (c, next) => {
+//   const redis = Redis.fromEnv(c.env);
+//   const isValid = await bearerAuth({ token: async (token) => !(await redis.sismember('tokens', token)) })(c, next);
+//   if (!isValid.response) {
+//     return c.json({ error: 'Invalid Token' }, 401);
+//   }
+//   await next();
+// });
 
-    switch (request.method) {
-      case 'GET':
-        if (objectName === '') {
-          return new Response(`Missing object`, { status: 400 });
-        }
-        try {
-          const bucket =
-            findNearestPosition({ latitude: request.cf.latitude, longitude: request.cf.longitude }, positions) || env.ENAM_BUCKET;
-          const object = await bucket.get(objectName, {
-            range: request.headers,
-            onlyIf: request.headers,
-          });
+app.get("/:objectName", async (c) => {
+	const objectName = c.req.param("objectName");
+	if (!objectName) {
+		return c.json({ error: "Missing object" }, 400);
+	}
 
-          if (object === null) {
-            return objectNotFound(objectName);
-          }
+	try {
+		const userLocation = {
+			latitude: c.env.CF.latitude,
+			longitude: c.env.CF.longitude,
+		};
+		const bucket =
+			findNearestPosition(userLocation, positions) || c.env.ENAM_BUCKET;
+		const object = await c.env[bucket].get(objectName, {
+			range: c.req.raw.headers,
+			onlyIf: c.req.raw.headers,
+		});
 
-          const headers = new Headers();
-          object.writeHttpMetadata(headers);
-          headers.set('etag', object.httpEtag);
+		if (object === null) {
+			return objectNotFound(objectName);
+		}
 
-          if (object.range) {
-            headers.set('content-range', `bytes ${object.range.offset}-${object.range.end ?? object.size - 1}/${object.size}`);
-          }
+		const headers = new Headers();
+		object.writeHttpMetadata(headers);
+		headers.set("etag", object.httpEtag);
 
-          const status = object.body ? (request.headers.get('range') !== null ? 206 : 200) : 304;
+		if (object.range) {
+			headers.set(
+				"content-range",
+				`bytes ${object.range.offset}-${object.range.end ?? object.size - 1}/${object.size}`,
+			);
+		}
 
-          return new Response(object.body, {
-            headers,
-            status,
-          });
-        } catch (e) {
-          return new Response('There was an error processing the request', {
-            status: 500,
-          });
-        }
+		const status = object.body
+			? c.req.header("range") !== null
+				? 206
+				: 200
+			: 304;
 
-      case 'POST':
-        var action = url.searchParams.get('action');
-        var serverName = request.headers.get('X-Bucket-Name');
-        if (serverName === null) {
-          return new Response(`Missing server name`, {
-            status: 400,
-          });
-        }
-        var server = positions.find((position) => position.shortName === serverName);
+		return new Response(object.body, { headers, status });
+	} catch (e) {
+		return c.json({ error: "There was an error processing the request" }, 500);
+	}
+});
 
-        if (server === undefined) {
-          return new Response(`Unknown server ${serverName}`, {
-            status: 400,
-          });
-        }
+app.post("/:objectName", async (c) => {
+	const objectName = c.req.param("objectName");
+	const action = c.req.query("action");
+	const serverName = c.req.header("X-Bucket-Name");
 
-        switch (action) {
-          case 'mpu-create': {
-            const multipartUpload = await server.env.createMultipartUpload(objectName);
-            return new Response(
-              JSON.stringify({
-                key: multipartUpload.objectName,
-                uploadId: multipartUpload.uploadId,
-              })
-            );
-          }
-          case 'mpu-complete': {
-            const uploadId = url.searchParams.get('uploadId');
-            if (uploadId === null) {
-              return new Response('Missing uploadId', { status: 400 });
-            }
+	if (!serverName) {
+		return c.json({ error: "Missing server name" }, 400);
+	}
 
-            const multipartUpload = server.env.resumeMultipartUpload(objectName, uploadId);
+	const server = positions.find(
+		(position) => position.shortName === serverName,
+	);
+	if (!server) {
+		return c.json({ error: `Unknown server ${serverName}` }, 400);
+	}
 
-            const completeBody = await request.json();
-            if (completeBody === null) {
-              return new Response('Missing or incomplete body', {
-                status: 400,
-              });
-            }
+	switch (action) {
+		case "mpu-create": {
+			const multipartUpload =
+				await c.env[server.env].createMultipartUpload(objectName);
+			return c.json({
+				key: multipartUpload.objectName,
+				uploadId: multipartUpload.uploadId,
+			});
+		}
+		case "mpu-complete": {
+			const uploadId = c.req.query("uploadId");
+			if (!uploadId) {
+				return c.json({ error: "Missing uploadId" }, 400);
+			}
 
-            // Error handling in case the multipart upload does not exist anymore
-            try {
-              const object = await multipartUpload.complete(completeBody.parts);
-              return new Response(null, {
-                headers: {
-                  etag: object.httpEtag,
-                },
-              });
-            } catch (error) {
-              return new Response(error.message, { status: 400 });
-            }
-          }
-          default:
-            return new Response(`Unknown action ${action} for POST`, {
-              status: 400,
-            });
-        }
-      case 'PUT':
-        var action = url.searchParams.get('action');
-        var serverName = request.headers.get('X-Bucket-Name');
-        if (serverName === null) {
-          return new Response(`Missing server name`, {
-            status: 400,
-          });
-        }
-        var server = positions.find((position) => position.shortName === serverName);
+			const multipartUpload = c.env[server.env].resumeMultipartUpload(
+				objectName,
+				uploadId,
+			);
+			const completeBody = await c.req.json();
+			if (!completeBody) {
+				return c.json({ error: "Missing or incomplete body" }, 400);
+			}
 
-        if (server === undefined) {
-          return new Response(`Unknown server ${serverName}`, {
-            status: 400,
-          });
-        }
+			try {
+				const object = await multipartUpload.complete(completeBody.parts);
+				return new Response(null, {
+					headers: { etag: object.httpEtag },
+				});
+			} catch (error) {
+				return c.json({ error: error.message }, 400);
+			}
+		}
+		default:
+			return c.json({ error: `Unknown action ${action} for POST` }, 400);
+	}
+});
 
-        switch (action) {
-          case 'mpu-uploadpart': {
-            const uploadId = url.searchParams.get('uploadId');
-            const partNumberString = url.searchParams.get('partNumber');
-            if (partNumberString === null || uploadId === null) {
-              return new Response('Missing partNumber or uploadId', {
-                status: 400,
-              });
-            }
-            if (request.body === null) {
-              return new Response('Missing request body', { status: 400 });
-            }
+app.put("/:objectName", async (c) => {
+	const objectName = c.req.param("objectName");
+	const action = c.req.query("action");
+	const serverName = c.req.header("X-Bucket-Name");
 
-            const partNumber = parseInt(partNumberString);
-            const multipartUpload = server.env.resumeMultipartUpload(objectName, uploadId);
-            try {
-              const uploadedPart = await multipartUpload.uploadPart(partNumber, request.body);
-              return new Response(JSON.stringify(uploadedPart));
-            } catch (error) {
-              return new Response(error.message, { status: 400 });
-            }
-          }
-          default:
-            return new Response(`Unknown action ${action} for PUT`, {
-              status: 400,
-            });
-        }
-      default:
-        return new Response('Method Not Allowed', {
-          status: 405,
-          headers: { Allow: 'GET, POST, PUT' },
-        });
-    }
-  },
-};
+	if (!serverName) {
+		return c.json({ error: "Missing server name" }, 400);
+	}
+
+	const server = positions.find(
+		(position) => position.shortName === serverName,
+	);
+	if (!server) {
+		return c.json({ error: `Unknown server ${serverName}` }, 400);
+	}
+
+	switch (action) {
+		case "mpu-uploadpart": {
+			const uploadId = c.req.query("uploadId");
+			const partNumberString = c.req.query("partNumber");
+			if (!partNumberString || !uploadId) {
+				return c.json({ error: "Missing partNumber or uploadId" }, 400);
+			}
+			if (!c.req.raw.body) {
+				return c.json({ error: "Missing request body" }, 400);
+			}
+
+			const partNumber = parseInt(partNumberString);
+			const multipartUpload = c.env[server.env].resumeMultipartUpload(
+				objectName,
+				uploadId,
+			);
+			try {
+				const uploadedPart = await multipartUpload.uploadPart(
+					partNumber,
+					c.req.raw.body,
+				);
+				return c.json(uploadedPart);
+			} catch (error) {
+				return c.json({ error: error.message }, 400);
+			}
+		}
+		default:
+			return c.json({ error: `Unknown action ${action} for PUT` }, 400);
+	}
+});
+
+export default app;
