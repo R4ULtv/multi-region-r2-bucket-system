@@ -1,35 +1,14 @@
 import { Hono } from "hono";
 import { getDistance } from "geolib";
-// import { bearerAuth } from "hono/bearer-auth";
-// import { Redis } from '@upstash/redis/cloudflare'; // you need to install `@upstash/redis`
+import { bearerAuth } from "hono/bearer-auth";
+import { Redis } from "@upstash/redis/cloudflare";
 
 const app = new Hono();
 
-function objectNotFound(objectName) {
-  return new Response(`${objectName} not found`, { status: 404 });
-}
+const DEFAULT_BUCKET = "ENAM_BUCKET";
 
-const calculateDistance = (userLocation, position) => {
-  if (!userLocation || !position) {
-    return null;
-  }
-  return getDistance(userLocation, position, 10);
-};
-
-const findNearestPosition = (userLocation, positions) => {
-  if (!userLocation || positions.length === 0) {
-    return null;
-  }
-  const distances = positions.map((position) => ({
-    ...position,
-    distance: calculateDistance(userLocation, position),
-  }));
-  return distances.reduce((minPosition, current) =>
-    current.distance < minPosition.distance ? current : minPosition,
-  ).env;
-};
-
-const positions = [
+// Geographic positions of bucket servers
+const BUCKET_POSITIONS = [
   {
     latitude: 48.2203697,
     longitude: 16.2972723,
@@ -67,30 +46,99 @@ const positions = [
   },
 ];
 
-// Middleware for token validation
-// app.use('*', async (c, next) => {
-//   const redis = Redis.fromEnv(c.env);
-//   const isValid = await bearerAuth({ token: async (token) => !(await redis.sismember('tokens', token)) })(c, next);
-//   if (!isValid.response) {
-//     return c.json({ error: 'Invalid Token' }, 401);
-//   }
-//   await next();
-// });
+// Error response helper functions
+const createErrorResponse = (message, status) => {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+};
 
+const objectNotFound = (objectName) => {
+  return createErrorResponse(`Object '${objectName}' not found`, 404);
+};
+
+// Geographic utility functions
+const calculateDistance = (userLocation, position) => {
+  if (
+    !userLocation?.latitude ||
+    !userLocation?.longitude ||
+    !position?.latitude ||
+    !position?.longitude
+  ) {
+    return Infinity;
+  }
+  return getDistance(userLocation, position);
+};
+
+const findNearestPosition = (userLocation, positions) => {
+  if (!userLocation || !positions?.length) {
+    return null;
+  }
+
+  let nearestPosition = null;
+  let minDistance = Infinity;
+
+  for (const position of positions) {
+    const distance = calculateDistance(userLocation, position);
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestPosition = position;
+    }
+  }
+
+  return nearestPosition;
+};
+
+// Server validation
+const getServerByName = (serverName) => {
+  return BUCKET_POSITIONS.find((position) => position.shortName === serverName);
+};
+
+// Auth middleware
+app.use("*", async (c, next) => {
+  try {
+    const redis = Redis.fromEnv(c.env);
+    const token = c.req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!token) {
+      return createErrorResponse("Missing authentication token", 401);
+    }
+
+    const isValid = await redis.sismember("valid_tokens", token);
+    if (!isValid) {
+      return createErrorResponse("Invalid authentication token", 401);
+    }
+
+    await next();
+  } catch (error) {
+    console.error("Auth middleware error:", error);
+    return createErrorResponse("Authentication service unavailable", 500);
+  }
+});
+
+// GET endpoint to retrieve an object
 app.get("/:objectName", async (c) => {
   const objectName = c.req.param("objectName");
   if (!objectName) {
-    return c.json({ error: "Missing object" }, 400);
+    return createErrorResponse("Missing object name", 400);
   }
 
   try {
-    const userLocation = {
-      latitude: c.env.CF.latitude,
-      longitude: c.env.CF.longitude,
-    };
-    const bucket =
-      findNearestPosition(userLocation, positions) || c.env.ENAM_BUCKET;
-    const object = await c.env[bucket].get(objectName, {
+    // Get user's geographic location from Cloudflare
+    const userLocation = c.req.raw.cf
+      ? {
+          latitude: c.req.raw.cf.latitude,
+          longitude: c.req.raw.cf.longitude,
+        }
+      : null;
+
+    // Find nearest bucket or use default
+    const nearestPosition = findNearestPosition(userLocation, BUCKET_POSITIONS);
+    const bucketEnv = nearestPosition?.env || DEFAULT_BUCKET;
+
+    // Get object from bucket
+    const object = await c.env[bucketEnv].get(objectName, {
       range: c.req.raw.headers,
       onlyIf: c.req.raw.headers,
     });
@@ -99,10 +147,13 @@ app.get("/:objectName", async (c) => {
       return objectNotFound(objectName);
     }
 
+    // Set response headers
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     headers.set("etag", object.httpEtag);
+    headers.set("x-served-from", nearestPosition?.name || "Default server");
 
+    // Handle range requests
     if (object.range) {
       headers.set(
         "content-range",
@@ -110,104 +161,144 @@ app.get("/:objectName", async (c) => {
       );
     }
 
-    const status = object.body
-      ? c.req.header("range") !== null
+    // Determine appropriate status code
+    const status = !object.body
+      ? 304
+      : c.req.header("range") !== null
         ? 206
-        : 200
-      : 304;
+        : 200;
 
     return new Response(object.body, { headers, status });
-  } catch (e) {
-    return c.json({ error: "There was an error processing the request" }, 500);
+  } catch (error) {
+    console.error("Error retrieving object:", error);
+    return createErrorResponse("Error processing request", 500);
   }
 });
 
+// POST endpoint for creating multipart uploads
 app.post("/:objectName", async (c) => {
   const objectName = c.req.param("objectName");
   const action = c.req.query("action");
   const serverName = c.req.header("X-Bucket-Name");
 
   if (!serverName) {
-    return c.json({ error: "Missing server name" }, 400);
+    return createErrorResponse(
+      "Missing server name in X-Bucket-Name header",
+      400,
+    );
   }
 
-  const server = positions.find(
-    (position) => position.shortName === serverName,
-  );
+  const server = getServerByName(serverName);
   if (!server) {
-    return c.json({ error: `Unknown server ${serverName}` }, 400);
+    return createErrorResponse(`Unknown server: ${serverName}`, 400);
   }
 
-  switch (action) {
-    case "mpu-create": {
-      const multipartUpload =
-        await c.env[server.env].createMultipartUpload(objectName);
-      return c.json({
-        key: multipartUpload.objectName,
-        uploadId: multipartUpload.uploadId,
-      });
-    }
-    case "mpu-complete": {
-      const uploadId = c.req.query("uploadId");
-      if (!uploadId) {
-        return c.json({ error: "Missing uploadId" }, 400);
-      }
-
-      const multipartUpload = c.env[server.env].resumeMultipartUpload(
-        objectName,
-        uploadId,
-      );
-      const completeBody = await c.req.json();
-      if (!completeBody) {
-        return c.json({ error: "Missing or incomplete body" }, 400);
-      }
-
-      try {
-        const object = await multipartUpload.complete(completeBody.parts);
-        return new Response(null, {
-          headers: { etag: object.httpEtag },
+  try {
+    switch (action) {
+      case "mpu-create": {
+        const multipartUpload =
+          await c.env[server.env].createMultipartUpload(objectName);
+        return c.json({
+          key: multipartUpload.objectName,
+          uploadId: multipartUpload.uploadId,
         });
-      } catch (error) {
-        return c.json({ error: error.message }, 400);
       }
+
+      case "mpu-complete": {
+        const uploadId = c.req.query("uploadId");
+        if (!uploadId) {
+          return createErrorResponse("Missing uploadId parameter", 400);
+        }
+
+        const multipartUpload = c.env[server.env].resumeMultipartUpload(
+          objectName,
+          uploadId,
+        );
+
+        let completeBody;
+        try {
+          completeBody = await c.req.json();
+        } catch (error) {
+          return createErrorResponse("Invalid JSON in request body", 400);
+        }
+
+        if (!completeBody?.parts || !Array.isArray(completeBody.parts)) {
+          return createErrorResponse(
+            "Missing or invalid 'parts' in request body",
+            400,
+          );
+        }
+
+        try {
+          const object = await multipartUpload.complete(completeBody.parts);
+          return new Response(null, {
+            status: 200,
+            headers: {
+              etag: object.httpEtag,
+              "content-type": "application/json",
+            },
+          });
+        } catch (error) {
+          return createErrorResponse(error.message, 400);
+        }
+      }
+
+      default:
+        return createErrorResponse(
+          `Unknown action: ${action || "undefined"}`,
+          400,
+        );
     }
-    default:
-      return c.json({ error: `Unknown action ${action} for POST` }, 400);
+  } catch (error) {
+    console.error("Error in POST request:", error);
+    return createErrorResponse("Server error processing multipart upload", 500);
   }
 });
 
+// PUT endpoint for uploading parts
 app.put("/:objectName", async (c) => {
   const objectName = c.req.param("objectName");
   const action = c.req.query("action");
   const serverName = c.req.header("X-Bucket-Name");
 
   if (!serverName) {
-    return c.json({ error: "Missing server name" }, 400);
+    return createErrorResponse(
+      "Missing server name in X-Bucket-Name header",
+      400,
+    );
   }
 
-  const server = positions.find(
-    (position) => position.shortName === serverName,
-  );
+  const server = getServerByName(serverName);
   if (!server) {
-    return c.json({ error: `Unknown server ${serverName}` }, 400);
+    return createErrorResponse(`Unknown server: ${serverName}`, 400);
   }
 
-  switch (action) {
-    case "mpu-uploadpart": {
+  try {
+    if (action === "mpu-uploadpart") {
       const uploadId = c.req.query("uploadId");
       const partNumberString = c.req.query("partNumber");
+
       if (!partNumberString || !uploadId) {
-        return c.json({ error: "Missing partNumber or uploadId" }, 400);
-      }
-      if (!c.req.raw.body) {
-        return c.json({ error: "Missing request body" }, 400);
+        return createErrorResponse(
+          "Missing partNumber or uploadId parameters",
+          400,
+        );
       }
 
-      const partNumber = parseInt(partNumberString);
+      if (!c.req.raw.body) {
+        return createErrorResponse("Missing request body", 400);
+      }
+
+      const partNumber = parseInt(partNumberString, 10);
+      if (isNaN(partNumber) || partNumber <= 0) {
+        return createErrorResponse("Invalid part number", 400);
+      }
+
       const multipartUpload = c.env[server.env].resumeMultipartUpload(
         objectName,
         uploadId,
       );
+
       try {
         const uploadedPart = await multipartUpload.uploadPart(
           partNumber,
@@ -215,11 +306,14 @@ app.put("/:objectName", async (c) => {
         );
         return c.json(uploadedPart);
       } catch (error) {
-        return c.json({ error: error.message }, 400);
+        return createErrorResponse(error.message, 400);
       }
     }
-    default:
-      return c.json({ error: `Unknown action ${action} for PUT` }, 400);
+
+    return createErrorResponse(`Unknown action: ${action || "undefined"}`, 400);
+  } catch (error) {
+    console.error("Error in PUT request:", error);
+    return createErrorResponse("Server error processing part upload", 500);
   }
 });
 
