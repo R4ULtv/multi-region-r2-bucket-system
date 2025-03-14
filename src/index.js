@@ -68,7 +68,7 @@ const calculateDistance = (userLocation, position) => {
   ) {
     return Infinity;
   }
-  return getDistance(userLocation, position);
+  return getDistance(userLocation, position, 10);
 };
 
 const findNearestPosition = (userLocation, positions) => {
@@ -96,26 +96,20 @@ const getServerByName = (serverName) => {
 };
 
 // Auth middleware
-app.use("*", async (c, next) => {
-  try {
-    const redis = Redis.fromEnv(c.env);
-    const token = c.req.header("Authorization")?.replace("Bearer ", "");
-
-    if (!token) {
-      return createErrorResponse("Missing authentication token", 401);
-    }
-
-    const isValid = await redis.sismember("valid_tokens", token);
-    if (!isValid) {
-      return createErrorResponse("Invalid authentication token", 401);
-    }
-
-    await next();
-  } catch (error) {
-    console.error("Auth middleware error:", error);
-    return createErrorResponse("Authentication service unavailable", 500);
-  }
-});
+app.use(
+  "*",
+  bearerAuth({
+    verifyToken: async (token, c) => {
+      try {
+        const redis = Redis.fromEnv(c.env);
+        return await redis.sismember("valid_tokens", token);
+      } catch (error) {
+        console.error("Auth middleware error:", error);
+        return false;
+      }
+    },
+  }),
+);
 
 // GET endpoint to retrieve an object
 app.get("/:objectName", async (c) => {
