@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "multi-region-bucket-cloudflare-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2025-02-21",
+  // IMPORTANT: YOU NEED TO EDIT THE "bucket_name" BASED ON WHAT YOU PUT ON CLOUDFLARE R2
+  "r2_buckets": [
+    {
+      "binding": "EEUR_BUCKET",
+      "bucket_name": "EURR"
+    },
+    {
+      "binding": "WEUR_BUCKET",
+      "bucket_name": "WEUR"
+    },
+    {
+      "binding": "ENAM_BUCKET",
+      "bucket_name": "ENAM"
+    },
+    {
+      "binding": "WNAM_BUCKET",
+      "bucket_name": "WNAM"
+    },
+    {
+      "binding": "APAC_BUCKET",
+      "bucket_name": "APAC"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
