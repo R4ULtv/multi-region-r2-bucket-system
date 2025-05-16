@@ -25,19 +25,16 @@ The worker supports the following regions:
 
 ## Prerequisites
 - Node.js: Download and install the LTS version of Node.js from the official website: https://nodejs.org/en/download/package-manager.
-- Wrangler: Wrangler is the tool for deploying Cloudflare Workers. You can install it using npm by running this command in the terminal.
-```bash
-npm install -g wrangler
-```
+- Wrangler: Wrangler is the tool for deploying Cloudflare Workers.
 
 - Cloudflare Account: A free or paid Cloudflare account is required. You can create an account at https://www.cloudflare.com/.
 
 ## Setup
 
 1. Clone this repository
-2. Install dependencies with `npm install`
+2. Install dependencies with `pnpm i`
 3. Configure your R2 buckets in `wrangler.jsonc`
-4. Deploy with `npm run deploy`
+4. Deploy with `pnpm run deploy`
 
 ## Configuration
 
