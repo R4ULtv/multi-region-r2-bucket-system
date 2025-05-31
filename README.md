@@ -104,7 +104,7 @@ Handles part uploads for multipart operations.
 
 ## Upload Tool
 
-A Python script is included to upload files to the R2 buckets. See [upload/README.md](./upload/README.md) for details.
+A Python script is included to upload files to the R2 buckets. See [./src/upload/README.md](./src/upload/README.md) for details.
 
 ## Security
 
