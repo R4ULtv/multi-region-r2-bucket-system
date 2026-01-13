@@ -15,8 +15,8 @@ importers:
         specifier: ^3.3.4
         version: 3.3.4
       hono:
-        specifier: ^4.10.2
-        version: 4.10.2
+        specifier: ^4.11.4
+        version: 4.11.4
     devDependencies:
       wrangler:
         specifier: ^4.15.2
@@ -418,8 +418,8 @@ packages:
   glob-to-regexp@0.4.1:
     resolution: {integrity: sha512-lkX1HJXwyMcprw/5YUZc2s7DrpAiHB21/V+E1rHUrVNokkvB6bqMzT0VfV6/86ZNabt1k14YOIaT7nDvOX3Iiw==}
 
-  hono@4.10.2:
-    resolution: {integrity: sha512-p6fyzl+mQo6uhESLxbF5WlBOAJMDh36PljwlKtP5V1v09NxlqGru3ShK+4wKhSuhuYf8qxMmrivHOa/M7q0sMg==}
+  hono@4.11.4:
+    resolution: {integrity: sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA==}
     engines: {node: '>=16.9.0'}
 
   is-arrayish@0.3.2:
@@ -806,7 +806,7 @@ snapshots:
 
   glob-to-regexp@0.4.1: {}
 
-  hono@4.10.2: {}
+  hono@4.11.4: {}
 
   is-arrayish@0.3.2:
     optional: true
