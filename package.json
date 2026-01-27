@@ -9,7 +9,7 @@
   "dependencies": {
     "@upstash/redis": "^1.34.5",
     "geolib": "^3.3.4",
-    "hono": "^4.10.2"
+    "hono": "^4.11.7"
   },
   "devDependencies": {
     "wrangler": "^4.15.2"
